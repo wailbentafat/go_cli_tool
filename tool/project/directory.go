@@ -4,7 +4,7 @@ import (
 	"log"
 	"os"
 
-	"golang.org/x/text/cases"
+	
 )
 
 
@@ -69,6 +69,21 @@ func CreateDirectories(projectName string, directories []string) {
 					}
 				case "db":
 					_, err := os.Create(projectName + "/" + directory + "/" + subdirectory + "/db.go")
+					if err != nil {
+						log.Fatal(err)
+					}
+				}
+			}
+		case "cmd":
+			subdir := []string{"main"}
+			for _, subdirectory := range subdir {
+				err := os.MkdirAll(projectName+"/"+directory+"/"+subdirectory, 0755)
+				if err != nil {
+					log.Fatal(err)
+				}
+				switch subdirectory {
+				case "main":
+					_, err := os.Create(projectName + "/" + directory + "/" + subdirectory + "/main.go")
 					if err != nil {
 						log.Fatal(err)
 					}
