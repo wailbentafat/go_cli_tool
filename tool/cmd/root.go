@@ -4,6 +4,7 @@ Copyright © 2024 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -18,7 +19,7 @@ var rootCmd = &cobra.Command{
 	Short: "kifkif jya7a",
 	Run: func (cmd *cobra.Command, args []string) { 
 		fmt.Println("Hello World!")
-    initproject()
+   
 		
 	},
 }
