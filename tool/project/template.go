@@ -2,39 +2,31 @@ package project
 
 import (
 	"fmt"
-
 	
 )
 
+// Template prints the filename (not used currently)
 
 
+// InMain generates the main.go content
+func InMain() string {
+	content := `package main
 
+import (
+	"fmt"
+	"your_project_path/utils"
+)
 
-func Template(filename string){
-	fmt.Print(filename)
+func main() {
+	fmt.Println("Hello, World!")
 }
-
-
-
-
-func Inmain() string {
-	content := fmt.Sprintf(`
-	package main 
-
-	import()
-
-	func main() {
-	}
-	
-	
-	`)
+`
 	return content
 }
 
-func inidb() string{
-
-	content := `
-	package db
+// InitDB generates the database connection file content
+func InitDB() string {
+	content := `package db
 
 import (
 	"gorm.io/gorm"
@@ -50,13 +42,13 @@ func ConnectDatabase() {
 		panic("Failed to connect to database!")
 	}
 }
-
-	`
+`
 	return content
 }
-func iniredis() string{ 
-	content := `
-	package redis
+
+// InitRedis generates the Redis initialization file content
+func InitRedis() string {
+	content := `package redis
 
 import (
 	"context"
@@ -69,46 +61,36 @@ import (
 var ctx = context.Background()
 var rdb *redis.Client
 
-
 func InitializeRedis() {
 	rdb = redis.NewClient(&redis.Options{
-		Addr:     "localhost:6379", 
-		Password: "",               
-		DB:       0,               
+		Addr:     "localhost:6379",
+		Password: "",
+		DB:       0,
 	})
 
-	
 	if err := rdb.Ping(ctx).Err(); err != nil {
 		log.Fatalf("Could not connect to Redis: %v", err)
 	}
 }
 
-
 func SetCache(key string, value string, expiration time.Duration) error {
-	err := rdb.Set(ctx, key, value, expiration).Err()
-	if err != nil {
-		return err
-	}
-	return nil
+	return rdb.Set(ctx, key, value, expiration).Err()
 }
 
 func GetCache(key string) (string, error) {
 	val, err := rdb.Get(ctx, key).Result()
 	if err == redis.Nil {
-		
 		return "", nil
-	} else if err != nil {
-		return "", err
 	}
-	return val, nil
+	return val, err
+}
+`
+	return content
 }
 
-	
-	`
-	return content}
-func iniauthroutes(projectName string) string {
-	content := fmt.Sprintf(`
-	package routes
+// InitAuthRoutes generates the authentication routes file content
+func InitAuthRoutes(projectName string) string {
+	content := fmt.Sprintf(`package routes
 
 import (
 	"github.com/gin-gonic/gin"
@@ -119,14 +101,13 @@ func SetupRoutes(r *gin.Engine) {
 	r.POST("/register", controllers.Register)
 	r.POST("/login", controllers.Login)
 }
-
-	
-	`, projectName)
+`, projectName)
 	return content
 }
-func iniauthmodels() string {
-	content := `
-	package models
+
+// InitAuthModels generates the user model file content
+func InitAuthModels() string {
+	content := `package models
 
 import (
 	"gorm.io/gorm"
@@ -134,18 +115,17 @@ import (
 
 type User struct {
 	gorm.Model
-	ID        uint           ` + "`gorm:\"primaryKey\"`" + `
-	Email    string ` + "`json:\"username\" gorm:\"unique\"`" + `
-	Password string ` + "`json:\"password\"`" + `
+	ID        uint   ` + "`gorm:\"primaryKey\"`" + `
+	Email     string ` + "`json:\"email\" gorm:\"unique\"`" + `
+	Password  string ` + "`json:\"password\"`" + `
 }
-
-	
-	`
+`
 	return content
 }
-func iniauthcontrol(projectName string) string {
-	content := fmt.Sprintf(`
-	package controllers
+
+// InitAuthControllers generates the authentication controllers file content
+func InitAuthControllers(projectName string) string {
+	content := fmt.Sprintf(`package controllers
 
 import (
 	"net/http"
@@ -158,18 +138,14 @@ import (
 	"%s/utils/jwt"
 	"%s/utils/redis"
 	"%s/auth/models"
-	
 )
 
-
-var jwtKey = os.getenv("JWT_KEY")
-
+var jwtKey = []byte(os.Getenv("JWT_KEY"))
 
 type Claims struct {
 	Username string ` + "`json:\"username\"`" + `
 	jwt.RegisteredClaims
 }
-
 
 func Register(c *gin.Context) {
 	var user models.User
@@ -178,7 +154,6 @@ func Register(c *gin.Context) {
 		return
 	}
 
-	
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), 14)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not hash password"})
@@ -186,7 +161,6 @@ func Register(c *gin.Context) {
 	}
 	user.Password = string(hashedPassword)
 
-	
 	if err := db.DB.Create(&user).Error; err != nil {
 		c.JSON(http.StatusConflict, gin.H{"error": "Username already taken"})
 		return
@@ -195,7 +169,6 @@ func Register(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"message": "User registered successfully"})
 }
 
-
 func Login(c *gin.Context) {
 	var user models.User
 	if err := c.ShouldBindJSON(&user); err != nil {
@@ -203,23 +176,20 @@ func Login(c *gin.Context) {
 		return
 	}
 
-	
 	var storedUser models.User
-	if err := db.DB.Where("username = ?", user.Username).First(&storedUser).Error; err != nil {
+	if err := db.DB.Where("email = ?", user.Email).First(&storedUser).Error; err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not found"})
 		return
 	}
 
-	
 	if err := bcrypt.CompareHashAndPassword([]byte(storedUser.Password), []byte(user.Password)); err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid password"})
 		return
 	}
 
-	
 	expirationTime := time.Now().Add(30 * time.Minute)
 	claims := &Claims{
-		Username: user.Username,
+		Username: user.Email,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(expirationTime),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
@@ -232,30 +202,25 @@ func Login(c *gin.Context) {
 		return
 	}
 
-	
 	redis.SetCache(tokenString, "logged_in", 30*time.Minute)
 
-	
 	c.JSON(http.StatusOK, gin.H{"message": "Login successful", "token": tokenString})
 }
-
-	` , projectName, projectName, projectName, projectName)
+`, projectName, projectName, projectName, projectName)
 	return content
 }
-func inimiddleweare(projectName string)string{
-	content :=fmt.Sprintf( `
-	package middleware
+
+// InitMiddleware generates the middleware for JWT authentication
+func InitMiddleware(projectName string) string {
+	content := fmt.Sprintf(`package middleware
 
 import (
 	"net/http"
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/golang-jwt/jwt/v4"
 	"%s/utils/jwt"
-	
 )
-
 
 func JWTAuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -271,33 +236,31 @@ func JWTAuthMiddleware() gin.HandlerFunc {
 			c.Abort()
 			return
 		}
-		claims, err := jwt.parseToken(tokenString)
+		claims, err := jwt.ParseToken(tokenString)
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 			c.Abort()
 			return
 		}
 
-		
-		c.Set("email", claims      
+		c.Set("email", claims.Email)
+		c.Next()
 	}
 }
+`, projectName)
+	return content
+}
 
-
-
-	`,projectName)
-	return content}
-func inijwt() string {
-	content := `
-	package jwt
+// InitJWT generates the JWT utilities file content
+func InitJWT() string {
+	content := `package jwt
 
 import (
-	"time"
 	"os"
+	"time"
 
 	"github.com/golang-jwt/jwt/v4"
 )
-
 
 type Claims struct {
 	Email string ` + "`json:\"email\"`" + `
@@ -317,12 +280,7 @@ func CreateToken(email string) (string, error) {
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, err := token.SignedString(JwtSecretKey)
-	if err != nil {
-		return "", err
-	}
-
-	return tokenString, nil
+	return token.SignedString(JwtSecretKey)
 }
 
 func ParseToken(tokenString string) (*Claims, error) {
@@ -331,7 +289,7 @@ func ParseToken(tokenString string) (*Claims, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, jwt.NewValidationError("unexpected signing method", jwt.ValidationErrorUnverifiable)
 		}
-		return JwtSecretKey, nil 
+		return JwtSecretKey, nil
 	})
 
 	if err != nil || !token.Valid {
@@ -340,6 +298,6 @@ func ParseToken(tokenString string) (*Claims, error) {
 
 	return claims, nil
 }
-	`
+`
 	return content
 }
